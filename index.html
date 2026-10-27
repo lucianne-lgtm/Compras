@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2C7A4F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Lista de compras</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --paper: #F5F8F4; --ink: #17231C; --muted: #5C6B62; --line: #D9E2DB;
+    --leaf: #2C7A4F; --leaf-ink: #FFFFFF; --done: #8A978F; --band: #E8F0E9; --warn: #A33A2B; --card: #FFFFFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #121A15; --ink: #E7EFE9; --muted: #9BAAA0; --line: #2A3A30; --leaf: #4FB27C; --leaf-ink: #0E1712;
+            --done: #708075; --band: #1A261E; --warn: #E08A7B; --card: #18241C; }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  h1 { font: 700 21px/1.2 Georgia, "Times New Roman", serif; margin: 0; }
+  h2 { font: 700 17px/1.2 Georgia, "Times New Roman", serif; margin: 0; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--line); padding: 10px 16px 8px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .chip { font-size: 12.5px; padding: 4px 10px; border-radius: 99px; background: var(--band); color: var(--muted); white-space: nowrap; }
+  .chip.ok { color: var(--leaf); } .chip.bad { color: var(--warn); }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tab { appearance: none; border: 1.5px solid var(--line); background: transparent; color: var(--ink); border-radius: 10px; padding: 8px 10px;
+         font: inherit; font-weight: 600; min-height: 44px; cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--leaf); border-color: var(--leaf); color: var(--leaf-ink); }
+  main { padding: 10px 16px 90px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .pill { appearance: none; border: 1.5px solid var(--line); background: transparent; color: var(--ink); border-radius: 99px; padding: 7px 14px;
+          font: inherit; font-size: 14.5px; min-height: 40px; cursor: pointer; }
+  .pill[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .progress { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; margin: 10px 0 5px; }
+  .progress strong { font-size: 17px; }
+  .bar { height: 8px; border-radius: 99px; background: var(--band); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--leaf); transition: width .25s ease; }
+  .btn { appearance: none; border: 1.5px solid var(--line); background: transparent; color: var(--ink); border-radius: 10px; padding: 8px 14px;
+         font: inherit; font-size: 15px; min-height: 44px; cursor: pointer; }
+  .btn.primary { background: var(--leaf); border-color: var(--leaf); color: var(--leaf-ink); font-weight: 600; }
+  .btn.warn { border-color: var(--warn); color: var(--warn); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  section.grp { margin-top: 18px; }
+  section.grp h2 { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 2px solid var(--leaf); }
+  section.grp h2 small { font: 600 13px system-ui, sans-serif; color: var(--muted); }
+  .row { border-bottom: 1px solid var(--line); }
+  .item { display: grid; grid-template-columns: 30px 1fr auto 40px; column-gap: 10px; align-items: center; padding: 8px 0 8px 2px; min-height: 54px; }
+  .tick { display: contents; cursor: pointer; }
+  .item input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .box { width: 28px; height: 28px; border: 2px solid var(--muted); border-radius: 8px; display: grid; place-items: center; transition: background .15s, border-color .15s; cursor: pointer; }
+  .box::after { content: ""; width: 7px; height: 13px; border: solid var(--leaf-ink); border-width: 0 3px 3px 0; transform: rotate(45deg) scale(0); margin-top: -3px; transition: transform .15s; }
+  input:checked + .box { background: var(--leaf); border-color: var(--leaf); }
+  input:checked + .box::after { transform: rotate(45deg) scale(1); }
+  input:focus-visible + .box { outline: 3px solid var(--leaf); outline-offset: 3px; }
+  .name { display: block; font-size: 16.5px; overflow-wrap: anywhere; cursor: pointer; }
+  .meta { display: block; font-size: 13px; color: var(--muted); margin-top: 1px; }
+  .qty { font-weight: 700; font-size: 15px; text-align: right; max-width: 38vw; overflow-wrap: anywhere; cursor: pointer; }
+  .edit { appearance: none; border: 0; background: transparent; color: var(--muted); width: 40px; height: 44px; font-size: 18px; cursor: pointer; border-radius: 8px; }
+  .row.done .name, .row.done .qty { color: var(--done); text-decoration: line-through; text-decoration-thickness: 2px; }
+  .row.done .meta { color: var(--done); }
+  .editor { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 4px 4px 12px 42px; }
+  .editor .full { grid-column: 1 / 3; }
+  label.f { font-size: 12.5px; color: var(--muted); display: block; margin-bottom: 2px; }
+  input[type=text], input[type=email], input[type=password], input[type=date], input[type=number], textarea, select {
+    width: 100%; font: inherit; font-size: 16px; padding: 9px 10px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); min-height: 44px; }
+  textarea { min-height: 120px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; }
+  .card h3 { margin: 0 0 6px; font-size: 16px; }
+  .sub { font-size: 13px; color: var(--muted); }
+  .center { max-width: 420px; margin: 0 auto; padding: 28px 16px; }
+  .err { color: var(--warn); font-size: 14px; margin-top: 8px; min-height: 18px; }
+  .agg { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .agg .r { text-align: right; font-weight: 700; font-size: 14.5px; } .agg .s { grid-column: 1 / 3; font-size: 12.5px; color: var(--muted); }
+  .loading { padding: 40px 0; text-align: center; color: var(--muted); }
+  .spin { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--line); border-top-color: var(--leaf); border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -3px; margin-right: 8px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--paper);
+           padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 20; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- 1. Configuración de Firebase (primera vez en cada dispositivo) -->
+<div id="setup" class="center hidden">
+  <h1>Configuración</h1>
+  <p class="sub">Pegá acá la configuración de tu proyecto de Firebase (el bloque que empieza con <code>apiKey</code>). Se guarda solo en este dispositivo. La guía de configuración explica de dónde sale.</p>
+  <textarea id="cfgText" placeholder='apiKey: "...", authDomain: "...", projectId: "...", storageBucket: "...", messagingSenderId: "...", appId: "..."'></textarea>
+  <div class="err" id="cfgErr"></div>
+  <button class="btn primary" id="cfgSave" type="button">Guardar y continuar</button>
+</div>
+
+<!-- 2. Inicio de sesión -->
+<div id="login" class="center hidden">
+  <h1>Lista de compras</h1>
+  <p class="sub">Entrá con tu cuenta de Google (la misma que está autorizada en las reglas de la familia).</p>
+  <button class="btn primary" id="googleBtn" type="button" style="width:100%">Entrar con Google</button>
+  <p class="sub" style="margin:18px 0 8px">¿Activaste también correo y contraseña? Podés entrar así:</p>
+  <label class="f" for="email">Correo</label>
+  <input type="email" id="email" autocomplete="username" inputmode="email">
+  <label class="f" for="pass" style="margin-top:10px">Contraseña</label>
+  <input type="password" id="pass" autocomplete="current-password">
+  <div class="err" id="loginErr"></div>
+  <button class="btn" id="loginBtn" type="button">Entrar con correo y contraseña</button>
+  <p style="margin-top:18px"><button class="btn" id="resetCfg1" type="button">Cambiar configuración de Firebase</button></p>
+</div>
+
+<!-- 3. App -->
+<div id="app" class="hidden">
+  <header>
+    <div class="wrap">
+      <div class="top"><h1>Lista de compras</h1><span class="chip" id="chip">Conectando…</span></div>
+      <div class="tabs" role="tablist" id="tabs">
+        <button class="tab" role="tab" data-t="comprar" type="button">Comprar</button>
+        <button class="tab" role="tab" data-t="historial" type="button">Historial</button>
+        <button class="tab" role="tab" data-t="ajustes" type="button">Ajustes</button>
+      </div>
+    </div>
+  </header>
+  <main class="wrap" id="view"><div class="loading"><span class="spin"></span>Cargando…</div></main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module">
+const SEED = [{"semana": 1, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Vacío", "cantidad": "800 g", "orden": 0, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Tira de asado", "cantidad": "700 g", "orden": 1, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Patamuslos de pollo", "cantidad": "800 g (asado)", "orden": 2, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Chorizos", "cantidad": "4 (carnicería de confianza)", "orden": 3, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Morcillas", "cantidad": "2 (carnicería de confianza)", "orden": 4, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Nalga", "cantidad": "1,2 kg (milanesas del lunes)", "orden": 5, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Jamón cocido natural", "cantidad": "150 g", "orden": 6, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Batatas", "cantidad": "1 kg", "orden": 7, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Papas", "cantidad": "600 g", "orden": 8, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Calabaza", "cantidad": "1 kg", "orden": 9, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zapallitos verdes", "cantidad": "1,3 kg", "orden": 10, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Morrones", "cantidad": "3", "orden": 11, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Espárragos", "cantidad": "1 atado (opcional, de temporada)", "orden": 12, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Lechuga", "cantidad": "2", "orden": 13, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Tomates frescos", "cantidad": "1,5 kg", "orden": 14, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zanahorias", "cantidad": "1 kg", "orden": 15, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Espinaca", "cantidad": "1 atado", "orden": 16, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla", "cantidad": "1 kg", "orden": 17, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla de verdeo", "cantidad": "3", "orden": 18, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Ajo", "cantidad": "2 cabezas", "orden": 19, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Limones", "cantidad": "4", "orden": 20, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Bananas", "cantidad": "2 kg", "orden": 21, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Manzanas", "cantidad": "1,5 kg", "orden": 22, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Naranjas o mandarinas", "cantidad": "1,5 kg", "orden": 23, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Frutillas", "cantidad": "1 kg", "orden": 24, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Viernes previo", "comercio": "Lácteos", "producto": "Provoleta", "cantidad": "1 (250 g)", "orden": 25, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Pollería y pescadería", "producto": "Milanesas de pollo ya hechas", "cantidad": "1 kg (12-14)", "orden": 26, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Pollería y pescadería", "producto": "Pechuga de pollo", "cantidad": "250 g (chaufa)", "orden": 27, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Pollería y pescadería", "producto": "Merluza", "cantidad": "700 g (miércoles)", "orden": 28, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Pollería y pescadería", "producto": "Salmón rosado", "cantidad": "500 g (o cuadril 500 g en la carnicería)", "orden": 29, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Acelga", "cantidad": "3 atados", "orden": 30, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Espinaca", "cantidad": "2 atados", "orden": 31, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Brócoli", "cantidad": "1 kg", "orden": 32, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Rúcula", "cantidad": "1 atado", "orden": 33, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Papas", "cantidad": "1 kg", "orden": 34, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zanahorias", "cantidad": "500 g", "orden": 35, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Morrones", "cantidad": "2", "orden": 36, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zapallitos verdes", "cantidad": "400 g", "orden": 37, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Lechuga", "cantidad": "1", "orden": 38, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Tomates frescos", "cantidad": "1 kg", "orden": 39, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Cebolla", "cantidad": "1 kg", "orden": 40, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Cebolla de verdeo", "cantidad": "4", "orden": 41, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Ajo", "cantidad": "1 cabeza", "orden": 42, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Limones", "cantidad": "2", "orden": 43, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Arvejas congeladas", "cantidad": "200 g", "orden": 44, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Verdulería", "producto": "Jengibre", "cantidad": "50 g", "orden": 45, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Martes", "comercio": "Lácteos", "producto": "Ricota", "cantidad": "500 g (pascualina)", "orden": 46, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Leche", "cantidad": "5 L (yogur 2 L, cocina 1 L, chicos 2 L; los adultos toman mate)", "orden": 47, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Huevos", "cantidad": "63 (unas 5 docenas)", "orden": 48, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Queso cremoso o fresco", "cantidad": "800 g", "orden": 49, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Manteca", "cantidad": "500 g", "orden": 50, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Crema de leche", "cantidad": "200 ml (semana 2)", "orden": 51, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Queso rallado", "cantidad": "150 g", "orden": 52, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Avena arrollada", "cantidad": "1 kg", "orden": 53, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Lentejas", "cantidad": "500 g", "orden": 54, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Arroz (blanco o integral)", "cantidad": "700 g", "orden": 55, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Fideos secos", "cantidad": "700 g (tallarines 300 g; moñitos o tirabuzones 400 g; si son frescos, 1,5 veces el peso)", "orden": 56, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Polenta", "cantidad": "500 g", "orden": 57, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Harina 000", "cantidad": "2 kg (tapas, pizza y budines)", "orden": 58, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Azúcar", "cantidad": "500 g", "orden": 59, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Pan rallado (etiqueta corta)", "cantidad": "500 g", "orden": 60, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Levadura seca", "cantidad": "1 sobre (10 g)", "orden": 61, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Tomates enteros en lata de 454 g", "cantidad": "3", "orden": 62, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Garbanzos cocidos", "cantidad": "400 g (1 lata o frasco)", "orden": 63, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Salsa de soja baja en sodio", "cantidad": "1 botella chica", "orden": 64, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Maicena", "cantidad": "1 paquete chico", "orden": 65, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Pan de panadería", "cantidad": "6 (parte se congela en rebanadas)", "orden": 66, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Almacén y lácteos", "producto": "Miel y canela", "cantidad": "", "orden": 67, "ciclo": "Ciclo 1"}, {"semana": 1, "grupo": "Almacén (semanas 1-2)", "comercio": "Despensa", "producto": "Aceite de oliva y de girasol, sal, pimienta, orégano, pimentón, comino, laurel, nuez moscada, polvo de hornear", "cantidad": "", "orden": 68, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Vacío", "cantidad": "800 g", "orden": 69, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Tira de asado", "cantidad": "700 g", "orden": 70, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Patamuslos de pollo", "cantidad": "800 g (asado)", "orden": 71, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Chorizos", "cantidad": "4 (carnicería de confianza)", "orden": 72, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Morcillas", "cantidad": "2 (carnicería de confianza)", "orden": 73, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Carne picada", "cantidad": "800 g (albóndigas; se cocinan el sábado)", "orden": 74, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Calabaza", "cantidad": "2 kg", "orden": 75, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Papas", "cantidad": "700 g", "orden": 76, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Brócoli", "cantidad": "400 g", "orden": 77, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Morrones", "cantidad": "2", "orden": 78, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zapallitos verdes", "cantidad": "1 kg", "orden": 79, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Lechuga", "cantidad": "2", "orden": 80, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Tomates frescos", "cantidad": "1,5 kg", "orden": 81, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zanahorias", "cantidad": "1 kg", "orden": 82, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Palta", "cantidad": "3", "orden": 83, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Albahaca", "cantidad": "1 atado", "orden": 84, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla", "cantidad": "1 kg", "orden": 85, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla de verdeo", "cantidad": "3", "orden": 86, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Ajo", "cantidad": "1 cabeza", "orden": 87, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Limones", "cantidad": "4", "orden": 88, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Bananas", "cantidad": "2 kg", "orden": 89, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Manzanas", "cantidad": "1,5 kg", "orden": 90, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Naranjas o mandarinas", "cantidad": "1,5 kg", "orden": 91, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Frutillas", "cantidad": "1 kg", "orden": 92, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Viernes previo", "comercio": "Lácteos", "producto": "Provoleta", "cantidad": "1 (250 g)", "orden": 93, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Pollería, pescadería y pasta fresca", "producto": "Pechuga de pollo", "cantidad": "500 g (wok del sábado)", "orden": 94, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Pollería, pescadería y pasta fresca", "producto": "Merluza", "cantidad": "700 g (miércoles)", "orden": 95, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Pollería, pescadería y pasta fresca", "producto": "Ravioles de ricota y espinaca de fábrica", "cantidad": "800 g (freezer hoy)", "orden": 96, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Fiambrería y lácteos", "producto": "Jamón cocido natural", "cantidad": "300 g", "orden": 97, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Fiambrería y lácteos", "producto": "Muzzarella", "cantidad": "500 g (pizza)", "orden": 98, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zapallitos verdes", "cantidad": "1 kg", "orden": 99, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zanahorias", "cantidad": "500 g", "orden": 100, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Brócoli", "cantidad": "500 g", "orden": 101, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Morrones", "cantidad": "2", "orden": 102, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Papas", "cantidad": "600 g", "orden": 103, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Tomates frescos", "cantidad": "1 kg", "orden": 104, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Lechuga", "cantidad": "1", "orden": 105, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Cebolla de verdeo", "cantidad": "4", "orden": 106, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Albahaca", "cantidad": "1 atado", "orden": 107, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Ajo", "cantidad": "1 cabeza", "orden": 108, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Limones", "cantidad": "2", "orden": 109, "ciclo": "Ciclo 1"}, {"semana": 2, "grupo": "Martes", "comercio": "Verdulería", "producto": "Arvejas congeladas", "cantidad": "200 g", "orden": 110, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Paleta o aguja", "cantidad": "1 kg (genovese)", "orden": 111, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Matambre de cerdo", "cantidad": "800 g (lunes)", "orden": 112, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Jamón cocido natural", "cantidad": "150 g", "orden": 113, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Pasta fresca", "producto": "Tallarines frescos de fábrica", "cantidad": "700 g (comprarlos el sábado o el domingo)", "orden": 114, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla", "cantidad": "2,5 kg (genovese y estofado)", "orden": 115, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zanahorias", "cantidad": "1,2 kg", "orden": 116, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Apio", "cantidad": "1 rama", "orden": 117, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Calabaza", "cantidad": "1,2 kg", "orden": 118, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Papas", "cantidad": "600 g", "orden": 119, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Brócoli", "cantidad": "400 g", "orden": 120, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zapallitos verdes", "cantidad": "800 g", "orden": 121, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Lechuga", "cantidad": "2", "orden": 122, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Tomates frescos", "cantidad": "1,5 kg", "orden": 123, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla de verdeo", "cantidad": "2", "orden": 124, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Ajo", "cantidad": "1 cabeza", "orden": 125, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Limones", "cantidad": "4", "orden": 126, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Bananas", "cantidad": "2 kg", "orden": 127, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Manzanas", "cantidad": "1,5 kg", "orden": 128, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Naranjas o mandarinas", "cantidad": "1,5 kg", "orden": 129, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Frutillas", "cantidad": "1 kg", "orden": 130, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Pollería, pescadería y carnicería", "producto": "Pechuga de pollo", "cantidad": "400 g (tarta)", "orden": 131, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Pollería, pescadería y carnicería", "producto": "Pollo en trozos sin piel", "cantidad": "700 g (estofado)", "orden": 132, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Pollería, pescadería y carnicería", "producto": "Patamuslos de pollo", "cantidad": "1,2 kg (sábado; freezer hoy)", "orden": 133, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Pollería, pescadería y carnicería", "producto": "Salmón rosado o trucha", "cantidad": "600 g (miércoles)", "orden": 134, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Pollería, pescadería y carnicería", "producto": "Cuadril", "cantidad": "500 g (wok del viernes; o comprarlo ese mismo día)", "orden": 135, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Lácteos", "producto": "Ricota", "cantidad": "250 g (tallarines del sábado)", "orden": 136, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Puerros", "cantidad": "4", "orden": 137, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zapallitos verdes", "cantidad": "600 g", "orden": 138, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Brócoli", "cantidad": "600 g", "orden": 139, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Morrones", "cantidad": "2", "orden": 140, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Batatas", "cantidad": "1 kg", "orden": 141, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Papas", "cantidad": "800 g", "orden": 142, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Espárragos", "cantidad": "2 atados", "orden": 143, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Tomates frescos", "cantidad": "1 kg", "orden": 144, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Albahaca", "cantidad": "1 atado", "orden": 145, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zanahorias", "cantidad": "500 g", "orden": 146, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Lechuga", "cantidad": "1", "orden": 147, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Cebolla de verdeo", "cantidad": "4", "orden": 148, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Martes", "comercio": "Verdulería", "producto": "Arvejas congeladas", "cantidad": "100 g", "orden": 149, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Leche", "cantidad": "5 L (yogur 2 L, cocina 1 L, chicos 2 L; los adultos toman mate)", "orden": 150, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Huevos", "cantidad": "64 (unas 5 docenas)", "orden": 151, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Queso cremoso o fresco", "cantidad": "1 kg", "orden": 152, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Manteca", "cantidad": "500 g", "orden": 153, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Crema de leche", "cantidad": "200 ml (tarta de puerro y pollo)", "orden": 154, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Queso rallado", "cantidad": "200 g", "orden": 155, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Avena arrollada", "cantidad": "1 kg", "orden": 156, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Arroz (blanco o integral)", "cantidad": "700 g", "orden": 157, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Fideos secos", "cantidad": "800 g (si son frescos, 1,5 veces el peso)", "orden": 158, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Harina 000", "cantidad": "2 kg (tapas, pizza y budines)", "orden": 159, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Azúcar", "cantidad": "500 g", "orden": 160, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Pan rallado (etiqueta corta)", "cantidad": "500 g", "orden": 161, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Levadura seca", "cantidad": "1 sobre (10 g)", "orden": 162, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Tomates enteros en lata de 454 g", "cantidad": "2", "orden": 163, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Garbanzos cocidos", "cantidad": "400 g (1 lata o frasco)", "orden": 164, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Salsa de soja baja en sodio y maicena (si faltan)", "cantidad": "", "orden": 165, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Vino blanco", "cantidad": "1 vaso (opcional, genovese)", "orden": 166, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Pan de panadería", "cantidad": "8 (parte se congela en rebanadas)", "orden": 167, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Almacén y lácteos", "producto": "Miel y canela", "cantidad": "", "orden": 168, "ciclo": "Ciclo 1"}, {"semana": 3, "grupo": "Almacén (semanas 3-4)", "comercio": "Despensa", "producto": "Aceite de oliva y de girasol, sal, pimienta, orégano, pimentón, comino, laurel, nuez moscada, polvo de hornear", "cantidad": "", "orden": 169, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Vacío", "cantidad": "800 g", "orden": 170, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Tira de asado", "cantidad": "700 g", "orden": 171, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Patamuslos de pollo", "cantidad": "800 g (asado)", "orden": 172, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Chorizos", "cantidad": "4 (carnicería de confianza)", "orden": 173, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Morcillas", "cantidad": "2 (carnicería de confianza)", "orden": 174, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Nalga", "cantidad": "1 kg (milanesas napolitanas)", "orden": 175, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Carne picada", "cantidad": "600 g (pastel de papa; se arma el sábado)", "orden": 176, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Carnicería y fiambrería", "producto": "Jamón cocido natural", "cantidad": "100 g (opcional)", "orden": 177, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Papas", "cantidad": "2 kg", "orden": 178, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Calabaza", "cantidad": "1 kg", "orden": 179, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Brócoli", "cantidad": "400 g", "orden": 180, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Morrones", "cantidad": "3", "orden": 181, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zapallitos verdes", "cantidad": "800 g", "orden": 182, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Lechuga", "cantidad": "2", "orden": 183, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Tomates frescos", "cantidad": "2,5 kg", "orden": 184, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Zanahorias", "cantidad": "1 kg", "orden": 185, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla", "cantidad": "1 kg", "orden": 186, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Cebolla de verdeo", "cantidad": "3", "orden": 187, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Ajo", "cantidad": "1 cabeza", "orden": 188, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Limones", "cantidad": "4", "orden": 189, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Bananas", "cantidad": "2 kg", "orden": 190, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Manzanas", "cantidad": "1,5 kg", "orden": 191, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Naranjas o mandarinas", "cantidad": "1,5 kg", "orden": 192, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Verdulería y frutas", "producto": "Frutillas", "cantidad": "1 kg", "orden": 193, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Lácteos", "producto": "Provoleta", "cantidad": "1 (250 g)", "orden": 194, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Viernes previo", "comercio": "Lácteos", "producto": "Muzzarella", "cantidad": "200 g (milanesas napolitanas)", "orden": 195, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Pollería y pescadería", "producto": "Pechuga de pollo", "cantidad": "600 g (wok del viernes; freezer hoy)", "orden": 196, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Pollería y pescadería", "producto": "Merluza", "cantidad": "700 g (miércoles)", "orden": 197, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Lácteos", "producto": "Ricota", "cantidad": "250 g (tarta y tallarines)", "orden": 198, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Lácteos", "producto": "Muzzarella", "cantidad": "500 g (pizza)", "orden": 199, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Acelga", "cantidad": "3 atados", "orden": 200, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Brócoli", "cantidad": "500 g", "orden": 201, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zapallitos verdes", "cantidad": "800 g", "orden": 202, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Morrones", "cantidad": "2", "orden": 203, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Tomates frescos", "cantidad": "1,5 kg", "orden": 204, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Albahaca", "cantidad": "1 atado", "orden": 205, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Lechuga", "cantidad": "1", "orden": 206, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Cebolla de verdeo", "cantidad": "3", "orden": 207, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Zanahorias", "cantidad": "500 g", "orden": 208, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Naranjas", "cantidad": "4 (para el wok)", "orden": 209, "ciclo": "Ciclo 1"}, {"semana": 4, "grupo": "Martes", "comercio": "Verdulería", "producto": "Jengibre", "cantidad": "50 g", "orden": 210, "ciclo": "Ciclo 1"}];
+const FB_VERSION = "10.14.1";
+const EMBEDDED_CONFIG = null;   // opcional: reemplazar null por { apiKey: "...", authDomain: "...", projectId: "...", appId: "..." }
+const COLLECTION = "plan";
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const show = (id, on) => $(id).classList.toggle("hidden", !on);
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2800); }
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+function today() { const d = new Date(); const p = (n) => ("0" + n).slice(-2); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+function num(s) { const v = parseFloat(String(s == null ? "" : s).replace(/\./g, "").replace(",", ".")); return isFinite(v) ? v : 0; }
+function money(v) { return "$ " + Math.round(v).toLocaleString("es-AR"); }
+function fdate(s) { if (!s) return ""; const [y, m, d] = s.split("-"); return d + "/" + m + "/" + y; }
+
+// ---------- configuración ----------
+function parseConfig(text) {
+  const cfg = {};
+  const re = /([A-Za-z]+)\s*:\s*["']([^"']*)["']/g; let m;
+  while ((m = re.exec(text))) cfg[m[1]] = m[2];
+  if (!cfg.apiKey && text.trim().startsWith("{")) { try { return JSON.parse(text); } catch (e) {} }
+  return cfg;
+}
+function getConfig() {
+  if (EMBEDDED_CONFIG && EMBEDDED_CONFIG.apiKey) return EMBEDDED_CONFIG;
+  const s = store("fb-config"); if (!s) return null;
+  try { const c = JSON.parse(s); return c.apiKey ? c : null; } catch (e) { return null; }
+}
+
+// ---------- estado ----------
+let fb = {};              // módulos de Firebase
+let auth, db, user = null, unsub = null;
+let docs = [];            // todos los documentos del plan
+let tab = store("tab") || "comprar";
+let ciclo = store("ciclo") || "";
+let semana = parseInt(store("semana") || "1", 10);
+let grupo = store("grupo") || "Viernes previo";
+let openEditor = {};
+let syncState = { pending: false, cache: false };
+let denied = false;
+
+function setChip() {
+  const c = $("chip");
+  if (!navigator.onLine || syncState.cache) { c.textContent = "Sin conexión (se guarda y se sube después)"; c.className = "chip bad"; }
+  else if (syncState.pending) { c.textContent = "Guardando…"; c.className = "chip"; }
+  else { c.textContent = "Sincronizado"; c.className = "chip ok"; }
+}
+window.addEventListener("online", setChip); window.addEventListener("offline", setChip);
+
+// ---------- arranque ----------
+async function loadFirebase() {
+  const base = "https://www.gstatic.com/firebasejs/" + FB_VERSION + "/";
+  const [appM, authM, fsM] = await Promise.all([import(base + "firebase-app.js"), import(base + "firebase-auth.js"), import(base + "firebase-firestore.js")]);
+  fb = { ...appM, ...authM, ...fsM };
+}
+
+async function start() {
+  const cfg = getConfig();
+  if (!cfg) { show("setup", true); return; }
+  try { await loadFirebase(); }
+  catch (e) { show("login", true); $("loginErr").textContent = "No se pudo cargar Firebase. Revisá la conexión a internet."; return; }
+  const app = fb.initializeApp(cfg);
+  auth = fb.getAuth(app);
+  try {
+    db = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }) });
+  } catch (e) { db = fb.initializeFirestore(app, {}); }
+  fb.onAuthStateChanged(auth, (u) => {
+    user = u;
+    if (u) { show("login", false); show("app", true); subscribe(); render(); }
+    else { if (unsub) { unsub(); unsub = null; } docs = []; show("app", false); show("login", true); }
+  });
+}
+
+function subscribe() {
+  if (unsub) unsub();
+  unsub = fb.onSnapshot(fb.collection(db, COLLECTION), { includeMetadataChanges: true }, (snap) => {
+    denied = false;
+    docs = snap.docs.map((d) => ({ id: d.id, ref: d.ref, ...d.data() }));
+    syncState = { pending: snap.metadata.hasPendingWrites, cache: snap.metadata.fromCache && !navigator.onLine };
+    setChip();
+    if (!ciclo || !docs.some((d) => d.ciclo === ciclo)) {
+      const cs = ciclos(); if (cs.length) ciclo = cs[cs.length - 1];
+    }
+    if (!document.activeElement || !document.activeElement.matches("input, textarea, select")) render();
+  }, (err) => { if (err && err.code === "permission-denied") { denied = true; render(); } setChip(); toast("Error de sincronización: " + (err && err.code ? err.code : err)); });
+}
+
+function ciclos() { return [...new Set(docs.map((d) => d.ciclo))].sort((a, b) => a.localeCompare(b, "es", { numeric: true })); }
+
+// ---------- login ----------
+const ERR = { "auth/invalid-credential": "Correo o contraseña incorrectos.", "auth/wrong-password": "Contraseña incorrecta.", "auth/user-not-found": "No existe un usuario con ese correo.",
+  "auth/invalid-email": "El correo no es válido.", "auth/too-many-requests": "Demasiados intentos. Esperá unos minutos.", "auth/network-request-failed": "Sin conexión a internet.",
+  "auth/operation-not-allowed": "Ese método de acceso no está habilitado en Firebase Authentication.",
+  "auth/popup-closed-by-user": "Cerraste la ventana de Google antes de terminar.", "auth/cancelled-popup-request": "Se canceló el intento. Probá de nuevo.",
+  "auth/popup-blocked": "El navegador bloqueó la ventana emergente. Permitila y probá de nuevo.",
+  "auth/unauthorized-domain": "Esta dirección no está autorizada en Firebase (Authentication › Configuración › Dominios autorizados)." };
+$("loginBtn").addEventListener("click", async () => {
+  $("loginErr").textContent = "";
+  try { await fb.signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value); $("pass").value = ""; }
+  catch (e) { $("loginErr").textContent = ERR[e.code] || ("No se pudo entrar (" + (e.code || e.message) + ")."); }
+});
+$("googleBtn").addEventListener("click", async () => {
+  $("loginErr").textContent = "";
+  try { await fb.signInWithPopup(auth, new fb.GoogleAuthProvider()); }
+  catch (e) { $("loginErr").textContent = ERR[e.code] || ("No se pudo entrar con Google (" + (e.code || e.message) + ")."); }
+});
+$("pass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
+$("cfgSave").addEventListener("click", () => {
+  const cfg = parseConfig($("cfgText").value);
+  if (!cfg.apiKey || !cfg.projectId) { $("cfgErr").textContent = "No encuentro apiKey y projectId. Pegá el bloque completo."; return; }
+  store("fb-config", JSON.stringify(cfg)); location.reload();
+});
+$("resetCfg1").addEventListener("click", () => { store("fb-config", null); location.reload(); });
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.t; store("tab", tab); render(); window.scrollTo(0, 0); }));
+
+// ---------- escritura ----------
+function stamp() { return { actualizadoPor: user ? user.email : "", actualizadoEn: fb.serverTimestamp() }; }
+function save(d, data) { return fb.updateDoc(d.ref || fb.doc(db, COLLECTION, d.id), { ...data, ...stamp() }).catch((e) => toast("No se pudo guardar: " + (e.code || e.message))); }
+
+// ---------- render ----------
+function render() {
+  document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", b.dataset.t === tab ? "true" : "false"));
+  const v = $("view"); v.innerHTML = "";
+  if (denied) {
+    const c = el("div", "card"); c.appendChild(el("h3", null, "Esta cuenta no tiene permiso"));
+    c.appendChild(el("p", "sub", "Entraste como " + (user ? user.email : "") + ". Ese correo tiene que estar en la lista de las reglas de Firestore (paso 3 de la guía), escrito igual, en minúsculas."));
+    const o = el("button", "btn primary", "Cerrar sesión y probar con otra cuenta"); o.type = "button"; o.addEventListener("click", () => fb.signOut(auth)); c.appendChild(o); v.appendChild(c); return;
+  }
+  if (tab === "comprar") renderComprar(v); else if (tab === "historial") renderHistorial(v); else renderAjustes(v);
+}
+
+function pills(container, options, current, onPick) {
+  options.forEach((o) => { const b = el("button", "pill", o.label); b.type = "button"; b.setAttribute("aria-pressed", String(o.value === current)); b.addEventListener("click", () => onPick(o.value)); container.appendChild(b); });
+}
+
+function renderComprar(v) {
+  const cs = ciclos();
+  if (!cs.length) {
+    const c = el("div", "card"); c.appendChild(el("h3", null, "Todavía no hay un plan cargado"));
+    c.appendChild(el("p", "sub", "Cargá el plan del Ciclo 1 (una sola vez; después lo ve toda la familia) o importá un CSV desde Ajustes."));
+    const b = el("button", "btn primary", "Cargar el plan del Ciclo 1 (" + SEED.length + " productos)"); b.type = "button"; b.addEventListener("click", seedPlan); c.appendChild(b); v.appendChild(c); return;
+  }
+  if (cs.length > 1) { const f = el("div", "filters"); pills(f, cs.map((c) => ({ label: c, value: c })), ciclo, (x) => { ciclo = x; store("ciclo", x); render(); }); v.appendChild(f); }
+  const all = docs.filter((d) => d.ciclo === ciclo);
+  const semanas = [...new Set(all.map((d) => d.semana))].sort((a, b) => a - b);
+  if (!semanas.includes(semana)) semana = semanas[0];
+  const f1 = el("div", "filters"); pills(f1, semanas.map((s) => ({ label: "Semana " + s, value: s })), semana, (x) => { semana = x; store("semana", String(x)); render(); }); v.appendChild(f1);
+  const delSem = all.filter((d) => d.semana === semana);
+  const grupos = [...new Set(delSem.sort((a, b) => a.orden - b.orden).map((d) => d.grupo))];
+  if (!grupos.includes(grupo)) grupo = grupos[0];
+  const f2 = el("div", "filters"); pills(f2, grupos.map((g) => ({ label: g, value: g })), grupo, (x) => { grupo = x; store("grupo", x); render(); }); v.appendChild(f2);
+
+  const list = delSem.filter((d) => d.grupo === grupo).sort((a, b) => a.orden - b.orden);
+  const done = list.filter((d) => d.comprado).length;
+  let spent = 0; list.forEach((d) => { if (d.comprado) spent += num(d.precio); });
+  const pr = el("div", "progress"); const l = el("span"); const st = el("strong", null, done + " de " + list.length); l.appendChild(st); l.appendChild(document.createTextNode(" tildados"));
+  pr.appendChild(l); pr.appendChild(el("span", null, done === list.length ? "Lista completa" : "Faltan " + (list.length - done) + (spent ? "  ·  gastado " + money(spent) : ""))); v.appendChild(pr);
+  const bar = el("div", "bar"); const fill = el("i"); fill.style.width = (list.length ? 100 * done / list.length : 0) + "%"; bar.appendChild(fill); v.appendChild(bar);
+
+  const comercios = [...new Set(list.map((d) => d.comercio))];
+  comercios.forEach((cm) => {
+    const items = list.filter((d) => d.comercio === cm);
+    const sec = el("section", "grp"); const h = el("h2"); h.appendChild(el("span", null, cm)); h.appendChild(el("small", null, items.filter((d) => d.comprado).length + "/" + items.length)); sec.appendChild(h);
+    items.forEach((d) => sec.appendChild(itemRow(d))); v.appendChild(sec);
+  });
+  const add = el("button", "btn", "+ Agregar un producto a esta lista"); add.type = "button"; add.style.marginTop = "18px"; add.addEventListener("click", () => addCustom(list)); v.appendChild(add);
+}
+
+function itemRow(d) {
+  const row = el("div", "row" + (d.comprado ? " done" : "")); const line = el("div", "item");
+  const lab = el("label", "tick"); const cb = el("input"); cb.type = "checkbox"; cb.checked = !!d.comprado; const box = el("span", "box");
+  const txt = el("span"); txt.appendChild(el("span", "name", d.producto));
+  const meta = []; if (d.cantidadReal) meta.push("Real: " + d.cantidadReal); if (num(d.precio)) meta.push(money(num(d.precio))); if (d.comercioReal) meta.push(d.comercioReal); if (d.fecha && d.comprado) meta.push(fdate(d.fecha));
+  if (meta.length) txt.appendChild(el("span", "meta", meta.join(" · ")));
+  lab.appendChild(cb); lab.appendChild(box); lab.appendChild(txt); lab.appendChild(el("span", "qty", d.cantidad || ""));
+  cb.addEventListener("change", () => { row.classList.toggle("done", cb.checked); save(d, { comprado: cb.checked, fecha: cb.checked ? (d.fecha || today()) : (d.fecha || "") }); });
+  const ed = el("button", "edit", "\u270E"); ed.type = "button"; ed.setAttribute("aria-label", "Cantidad real, precio y comercio de " + d.producto);
+  ed.addEventListener("click", () => { openEditor[d.id] = !openEditor[d.id]; render(); });
+  line.appendChild(lab); line.appendChild(ed); row.appendChild(line);
+  if (openEditor[d.id]) {
+    const e = el("div", "editor");
+    const mk = (label, type, val, ph, cls) => { const w = el("div", cls); const lb = el("label", "f", label); const i = el("input"); i.type = type; i.value = val || ""; i.placeholder = ph || ""; w.appendChild(lb); w.appendChild(i); e.appendChild(w); return i; };
+    const i1 = mk("Cantidad real", "text", d.cantidadReal, "ej. 1,4 kg");
+    const i2 = mk("Precio ($)", "text", d.precio, "ej. 4500"); i2.inputMode = "decimal";
+    const i3 = mk("Comercio donde compraste", "text", d.comercioReal, "ej. Carnicería López", "full");
+    const i4 = mk("Fecha de compra", "date", d.fecha, "", "full");
+    const commit = () => { save(d, { cantidadReal: i1.value.trim(), precio: i2.value.trim(), comercioReal: i3.value.trim(), fecha: i4.value }).then(() => render()); };
+    [i1, i2, i3, i4].forEach((i) => i.addEventListener("change", commit));
+    if (d.custom) { const del = el("button", "btn warn full", "Borrar este producto"); del.type = "button"; del.addEventListener("click", () => { if (!del.dataset.armed) { del.dataset.armed = "1"; del.textContent = "Tocá de nuevo para borrar"; setTimeout(() => { delete del.dataset.armed; del.textContent = "Borrar este producto"; }, 4000); return; } fb.deleteDoc(d.ref).then(() => toast("Producto borrado")); }); e.appendChild(del); }
+    row.appendChild(e);
+  }
+  return row;
+}
+
+function addCustom(list) {
+  const nombre = prompt("¿Qué producto querés agregar?"); if (!nombre || !nombre.trim()) return;
+  const cantidad = prompt("¿Qué cantidad? (opcional)") || "";
+  const comercios = [...new Set(list.map((d) => d.comercio))]; const cm = prompt("¿En qué comercio? Por ejemplo: " + (comercios[0] || "Verdulería"), comercios[0] || "") || "Otros";
+  const id = "custom-" + Date.now();
+  fb.setDoc(fb.doc(db, COLLECTION, id), { ciclo, semana, grupo, comercio: cm.trim(), producto: nombre.trim(), cantidad: cantidad.trim(), orden: 9000 + Date.now() % 100000,
+    comprado: false, cantidadReal: "", precio: "", comercioReal: "", fecha: "", custom: true, ...stamp() }).then(() => toast("Producto agregado")).catch((e) => toast("No se pudo agregar: " + (e.code || e.message)));
+}
+
+async function seedPlan() {
+  toast("Cargando el plan…");
+  try {
+    const chunks = []; for (let i = 0; i < SEED.length; i += 400) chunks.push(SEED.slice(i, i + 400));
+    for (const ch of chunks) {
+      const b = fb.writeBatch(db);
+      ch.forEach((it) => { const id = "c1-" + String(it.orden).padStart(4, "0"); b.set(fb.doc(db, COLLECTION, id), { ...it, comprado: false, cantidadReal: "", precio: "", comercioReal: "", fecha: "", custom: false, ...stamp() }); });
+      await b.commit();
+    }
+    toast("Plan cargado: " + SEED.length + " productos");
+  } catch (e) { toast("No se pudo cargar el plan: " + (e.code || e.message)); }
+}
+
+// ---------- historial ----------
+function renderHistorial(v) {
+  const cs = ciclos();
+  let sel = store("hciclo") || "Todos";
+  const f = el("div", "filters"); pills(f, [{ label: "Todos", value: "Todos" }, ...cs.map((c) => ({ label: c, value: c }))], sel, (x) => { store("hciclo", x); render(); }); v.appendChild(f);
+  const bought = docs.filter((d) => d.comprado && (sel === "Todos" || d.ciclo === sel));
+  if (!bought.length) { v.appendChild(el("div", "loading", "Todavía no hay compras tildadas en este ciclo.")); return; }
+  let total = 0; bought.forEach((d) => { total += num(d.precio); });
+  const top = el("div", "card"); top.appendChild(el("h3", null, bought.length + " productos comprados")); top.appendChild(el("div", "sub", total ? "Gasto cargado: " + money(total) : "Todavía no cargaste precios")); v.appendChild(top);
+
+  const byCom = {}; bought.forEach((d) => { const k = d.comercioReal || d.comercio; (byCom[k] = byCom[k] || { n: 0, t: 0 }); byCom[k].n++; byCom[k].t += num(d.precio); });
+  const c1 = el("section", "grp"); const h1 = el("h2"); h1.appendChild(el("span", null, "Por comercio")); c1.appendChild(h1);
+  Object.keys(byCom).sort((a, b) => byCom[b].t - byCom[a].t || byCom[b].n - byCom[a].n).forEach((k) => { const r = el("div", "agg"); r.appendChild(el("span", null, k)); r.appendChild(el("span", "r", byCom[k].t ? money(byCom[k].t) : byCom[k].n + " ítems")); r.appendChild(el("span", "s", byCom[k].n + " ítems")); c1.appendChild(r); }); v.appendChild(c1);
+
+  const byProd = {}; bought.forEach((d) => { const b = (byProd[d.producto] = byProd[d.producto] || { n: 0, t: 0, last: "" }); b.n++; b.t += num(d.precio); if (d.fecha > b.last) b.last = d.fecha; });
+  const c2 = el("section", "grp"); const h2 = el("h2"); h2.appendChild(el("span", null, "Por producto")); c2.appendChild(h2);
+  Object.keys(byProd).sort((a, b) => byProd[b].n - byProd[a].n || a.localeCompare(b)).slice(0, 50).forEach((k) => { const r = el("div", "agg"); r.appendChild(el("span", null, k)); r.appendChild(el("span", "r", byProd[k].n + (byProd[k].n === 1 ? " vez" : " veces"))); r.appendChild(el("span", "s", "Última: " + fdate(byProd[k].last) + (byProd[k].t ? "  ·  " + money(byProd[k].t) : ""))); c2.appendChild(r); }); v.appendChild(c2);
+
+  const byDay = {}; bought.forEach((d) => { (byDay[d.fecha || "sin fecha"] = byDay[d.fecha || "sin fecha"] || []).push(d); });
+  const c3 = el("section", "grp"); const h3 = el("h2"); h3.appendChild(el("span", null, "Día por día")); c3.appendChild(h3);
+  Object.keys(byDay).sort().reverse().forEach((k) => {
+    const items = byDay[k]; let t = 0; items.forEach((d) => { t += num(d.precio); });
+    const card = el("div", "card"); card.appendChild(el("h3", null, fdate(k) || k)); card.appendChild(el("div", "sub", items.length + " ítems" + (t ? "  ·  " + money(t) : "")));
+    const ul = el("ul"); ul.style.cssText = "margin:8px 0 0;padding-left:18px;font-size:14px"; items.forEach((d) => ul.appendChild(el("li", null, d.producto + " — " + (d.cantidadReal || d.cantidad || "") + (num(d.precio) ? " (" + money(num(d.precio)) + ")" : "") + (d.comercioReal ? " · " + d.comercioReal : ""))));
+    card.appendChild(ul); c3.appendChild(card);
+  }); v.appendChild(c3);
+
+  const ex = el("button", "btn primary", "Descargar CSV del historial"); ex.type = "button"; ex.style.marginTop = "18px";
+  ex.addEventListener("click", () => {
+    const q = (s) => '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"';
+    const lines = ["fecha,ciclo,semana,grupo,comercio_plan,comercio_real,producto,cantidad_plan,cantidad_real,precio"];
+    bought.slice().sort((a, b) => (a.fecha || "").localeCompare(b.fecha || "")).forEach((d) => lines.push([q(d.fecha), q(d.ciclo), d.semana, q(d.grupo), q(d.comercio), q(d.comercioReal), q(d.producto), q(d.cantidad), q(d.cantidadReal), num(d.precio)].join(",")));
+    const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" }); const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "historial_compras.csv"; document.body.appendChild(a); a.click(); a.remove(); toast("CSV descargado");
+  });
+  v.appendChild(ex);
+}
+
+// ---------- ajustes ----------
+function parseCSV(text) {
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cur); cur = ""; if (row.some((x) => x !== "")) rows.push(row); row = []; }
+    else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+function renderAjustes(v) {
+  const c1 = el("div", "card"); c1.appendChild(el("h3", null, "Sesión")); c1.appendChild(el("div", "sub", "Entraste como " + (user ? user.email : "")));
+  const out = el("button", "btn", "Cerrar sesión"); out.type = "button"; out.style.marginTop = "10px"; out.addEventListener("click", () => fb.signOut(auth)); c1.appendChild(out); v.appendChild(c1);
+
+  const c2 = el("div", "card"); c2.appendChild(el("h3", null, "Cargar un plan nuevo desde un CSV"));
+  c2.appendChild(el("div", "sub", "Para un ciclo nuevo. Columnas: ciclo, semana, grupo, comercio, producto, cantidad (con encabezado, separadas por comas)."));
+  const file = el("input"); file.type = "file"; file.accept = ".csv,text/csv"; file.style.marginTop = "10px"; c2.appendChild(file);
+  file.addEventListener("change", async () => {
+    const f = file.files[0]; if (!f) return; const rows = parseCSV(await f.text()); const head = rows.shift().map((h) => h.trim().toLowerCase().replace(/^\ufeff/, ""));
+    const ix = (n) => head.indexOf(n); const need = ["ciclo", "semana", "grupo", "comercio", "producto", "cantidad"];
+    if (need.some((n) => ix(n) < 0)) { toast("Faltan columnas. Se necesitan: " + need.join(", ")); return; }
+    const existing = new Set(docs.map((d) => d.ciclo)); const name = rows[0] ? rows[0][ix("ciclo")] : ""; if (existing.has(name)) { toast("Ya existe el ciclo «" + name + "». Usá otro nombre."); return; }
+    try {
+      for (let i = 0; i < rows.length; i += 400) { const b = fb.writeBatch(db);
+        rows.slice(i, i + 400).forEach((r, k) => { const n = i + k; const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + String(n).padStart(4, "0");
+          b.set(fb.doc(db, COLLECTION, id), { ciclo: r[ix("ciclo")], semana: parseInt(r[ix("semana")], 10) || 1, grupo: r[ix("grupo")], comercio: r[ix("comercio")], producto: r[ix("producto")], cantidad: r[ix("cantidad")] || "", orden: n,
+            comprado: false, cantidadReal: "", precio: "", comercioReal: "", fecha: "", custom: false, ...stamp() }); });
+        await b.commit(); }
+      ciclo = name; store("ciclo", name); toast("Plan «" + name + "» cargado: " + rows.length + " productos"); tab = "comprar"; render();
+    } catch (e) { toast("No se pudo cargar: " + (e.code || e.message)); }
+  });
+  v.appendChild(c2);
+
+  const c3 = el("div", "card"); c3.appendChild(el("h3", null, "Este dispositivo")); c3.appendChild(el("div", "sub", "Si cambiás de proyecto de Firebase, volvé a pegar la configuración."));
+  const rc = el("button", "btn warn", "Cambiar configuración de Firebase"); rc.type = "button"; rc.style.marginTop = "10px"; rc.addEventListener("click", () => { store("fb-config", null); location.reload(); }); c3.appendChild(rc); v.appendChild(c3);
+}
+
+start();
+</script>
+</body>
+</html>
